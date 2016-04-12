@@ -249,7 +249,7 @@ public class KarafTestContainer implements TestContainer {
         String[] classPath = buildKarafClasspath(karafHome);
         makeScriptsInBinExec(karafBin);
         File javaHome = new File(System.getProperty("java.home"));
-        String main = "org.apache.karaf.main.Main";
+        String main = framework.getKarafMain();
         String options = "";
         String[] environment = new String[] {};
         ArrayList<String> javaOpts = new ArrayList<String>();
@@ -529,8 +529,10 @@ public class KarafTestContainer implements TestContainer {
         // do the same for lib/ext
         File[] extJars = new File(karafHome + "/lib/ext")
             .listFiles((FileFilter) new WildcardFileFilter("*.jar"));
-        for (File jar : extJars) {
-            cp.add(jar.toString());
+        if (extJars != null) {
+            for (File jar : extJars) {
+                cp.add(jar.toString());
+            }
         }
         return cp.toArray(new String[] {});
     }
