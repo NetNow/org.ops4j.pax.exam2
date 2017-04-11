@@ -203,7 +203,7 @@ public class KarafTestContainer implements TestContainer {
 
     private boolean shouldInjectJUnitBundles(ExamSystem _system) {
         Option[] options = _system.getOptions(OverrideJUnitBundlesOption.class);  
-        LOGGER.info("Found {} options when requesting OverrideJUnitBundlesOption.class", options.length);
+        LOGGER.info("Found {} options when requesting OverrideJUnitBundlesOption.class. Response: {}", options.length, options.length == 0);
         return options.length == 0;
     }
     
@@ -216,7 +216,7 @@ public class KarafTestContainer implements TestContainer {
             //createBundleFromLink("/META-INF/links/org.ops4j.pax.exam.invoker.junit.link")
             mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.junit").version("4.12.0.1"),
             mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.hamcrest.core").version("1.3.0.1"),
-            mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-invoker-junit").version("4.7.0-SNAPSHOT")            
+            mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-invoker-junit").version(Info.getPaxExamVersion())            
         );
     }
     
