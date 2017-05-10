@@ -16,12 +16,14 @@
  */
 package org.ops4j.pax.exam.karaf.container.internal;
 
+import static org.ops4j.pax.exam.Constants.START_LEVEL_SYSTEM_BUNDLES;
 import static org.ops4j.pax.exam.CoreOptions.composite;
 import static org.ops4j.pax.exam.CoreOptions.maven;
 import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.CoreOptions.options;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
 import static org.ops4j.pax.exam.CoreOptions.when;
+import static org.ops4j.pax.exam.CoreOptions.bundle;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFileExtend;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_HOST_PROPERTY;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_NAME_PROPERTY;
@@ -55,6 +57,7 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.ops4j.net.FreePort;
+import org.ops4j.pax.exam.CoreOptions;
 import org.ops4j.pax.exam.ExamSystem;
 import org.ops4j.pax.exam.Info;
 import org.ops4j.pax.exam.Option;
@@ -95,6 +98,8 @@ import org.ops4j.pax.exam.rbc.client.RemoteBundleContextClient;
 import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.ops4j.pax.exam.options.MavenArtifactProvisionOption;
 
 public class KarafTestContainer implements TestContainer {
 
@@ -206,13 +211,18 @@ public class KarafTestContainer implements TestContainer {
     private Option injectJUnitBundles() throws IOException {
         LOGGER.info("Injecting JUnit Bundles");
         //return CoreOptions.junitBundles(); //The link: based URI's do not work for whatever reason
+        //return CoreOptions.composite(
+        //    CoreOptions.linkBundle("/META-INF/links/org.ops4j.pax.tipi.junit.link"),
+        //    CoreOptions.linkBundle("/META-INF/links/org.ops4j.pax.tipi.hamcrest.core.link"),
+        //    CoreOptions.linkBundle("/META-INF/links/org.ops4j.pax.exam.invoker.junit.link")
+        //);
         return composite(
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.junit.link"),
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.hamcrest.core.link"),
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.exam.invoker.junit.link")
-            mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.junit").version("4.12.0.1"),
-            mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.hamcrest.core").version("1.3.0.1"),
-            mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-invoker-junit").version(Info.getPaxExamVersion())            
+            createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.junit.link"),
+            createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.hamcrest.core.link"),
+            createBundleFromLink("/META-INF/links/org.ops4j.pax.exam.invoker.junit.link")
+        //    mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.junit").version("4.12.0.1"),
+        //    mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.hamcrest.core").version("1.3.0.1"),
+        //    mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-invoker-junit").version(Info.getPaxExamVersion())            
         );
     }
     
