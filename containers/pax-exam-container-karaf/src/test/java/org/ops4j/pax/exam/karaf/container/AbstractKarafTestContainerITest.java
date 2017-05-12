@@ -41,26 +41,30 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 
 @RunWith(PaxExam.class)
-public class KarafTestContainerITest {
+public abstract class AbstractKarafTestContainerITest {
 
-    private static final MavenArtifactUrlReference KARAF_URL = maven("org.apache.karaf", "apache-karaf", karafVersion()).type("zip");
+    private final MavenArtifactUrlReference KARAF_URL = maven("org.apache.karaf", "apache-karaf").type("zip");
+
     @Inject
     private BundleContext bc;
 
     @Configuration
     public Option[] config() {
+        String karafVersion = karafVersion();
         return new Option[] {
-            karafDistributionConfiguration().frameworkUrl(KARAF_URL).karafVersion(karafVersion()).useDeployFolder(false).unpackDirectory(new File("target/paxexam/unpack/")),
-            configureConsole().ignoreLocalConsole().startRemoteShell(), logLevel(LogLevel.INFO)
+            karafDistributionConfiguration().frameworkUrl(KARAF_URL.version(karafVersion))
+                .karafVersion(karafVersion).useDeployFolder(false).unpackDirectory(new File("target/paxexam/unpack/")),
+            configureConsole().startLocalConsole().ignoreRemoteShell(), logLevel(LogLevel.INFO)
         };
     }
-    
-    public static String karafVersion() {
+
+    public String karafVersion() {
         ConfigurationManager cm = new ConfigurationManager();
-        String karafVersion = cm.getProperty("pax.exam.karaf.version", "3.0.2");
+        String karafVersion = cm.getProperty("pax.exam.karaf.version", getDefaultKarafVersion());
         return karafVersion;
     }
-    
+
+    protected abstract String getDefaultKarafVersion();
 
     @Test
     public void checkKarafSystemService() throws Exception {

@@ -16,14 +16,12 @@
  */
 package org.ops4j.pax.exam.karaf.container.internal;
 
-import static org.ops4j.pax.exam.Constants.START_LEVEL_SYSTEM_BUNDLES;
 import static org.ops4j.pax.exam.CoreOptions.composite;
 import static org.ops4j.pax.exam.CoreOptions.maven;
+import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.CoreOptions.options;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
 import static org.ops4j.pax.exam.CoreOptions.when;
-import static org.ops4j.pax.exam.CoreOptions.bundle;
-import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFileExtend;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_HOST_PROPERTY;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_NAME_PROPERTY;
@@ -32,6 +30,7 @@ import static org.ops4j.pax.exam.rbc.Constants.RMI_PORT_PROPERTY;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,7 +55,6 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.ops4j.net.FreePort;
-import org.ops4j.pax.exam.CoreOptions;
 import org.ops4j.pax.exam.ExamSystem;
 import org.ops4j.pax.exam.Info;
 import org.ops4j.pax.exam.Option;
@@ -85,6 +83,7 @@ import org.ops4j.pax.exam.karaf.options.configs.CustomProperties;
 import org.ops4j.pax.exam.karaf.options.configs.FeaturesCfg;
 import org.ops4j.pax.exam.karaf.options.libraries.OverrideJUnitBundlesOption;
 import org.ops4j.pax.exam.options.BootDelegationOption;
+import org.ops4j.pax.exam.options.MavenArtifactProvisionOption;
 import org.ops4j.pax.exam.options.MavenArtifactUrlReference;
 import org.ops4j.pax.exam.options.PropagateSystemPropertyOption;
 import org.ops4j.pax.exam.options.ServerModeOption;
@@ -96,8 +95,6 @@ import org.ops4j.pax.exam.rbc.client.RemoteBundleContextClient;
 import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.ops4j.pax.exam.options.MavenArtifactProvisionOption;
 
 public class KarafTestContainer implements TestContainer {
 
@@ -138,15 +135,17 @@ public class KarafTestContainer implements TestContainer {
             //registry.selectGracefully();
             FreePort freePort = new FreePort(21000, 21099);
             int port = freePort.getPort();
-            LOGGER.debug("using RMI registry at port {}", port);
+
+            String host = InetAddress.getLoopbackAddress().getHostAddress();
+            LOGGER.info("Creating RMI registry server on {}:{}", host, port);
+            System.setProperty("java.rmi.server.hostname", host);
             rgstry = LocateRegistry.createRegistry(port);
 
-            String host = InetAddress.getLocalHost().getHostName();         
-            
             System.setProperty("java.protocol.handler.pkgs", "org.ops4j.pax.url");
-            
+
             ExamSystem subsystem = system
                 .fork(options(
+                    systemProperty("java.rmi.server.hostname").value(host),
                     systemProperty(RMI_HOST_PROPERTY).value(host),
                     systemProperty(RMI_PORT_PROPERTY).value(Integer.toString(port)),
                     systemProperty(RMI_NAME_PROPERTY).value(name),
@@ -156,8 +155,6 @@ public class KarafTestContainer implements TestContainer {
                     editConfigurationFileExtend("etc/system.properties", "jline.shutdownhook",
                         "true")));
             target = new RBCRemoteTarget(name, port, subsystem.getTimeout());
-
-            
 
             URL sourceDistribution = new URL(framework.getFrameworkURL());
             targetFolder = retrieveFinalTargetFolder(subsystem);
@@ -171,11 +168,10 @@ public class KarafTestContainer implements TestContainer {
                 karafHome);
             deployer.copyBootClasspathLibraries();
 
-            updateLogProperties(karafHome, subsystem);
             setupSystemProperties(karafHome, subsystem);
+            updateLogProperties(karafHome, subsystem);
 
-            
-            List<KarafDistributionConfigurationFileOption> options = new ArrayList<KarafDistributionConfigurationFileOption>(
+            List<KarafDistributionConfigurationFileOption> options = new ArrayList<>(
                 Arrays.asList(subsystem.getOptions(KarafDistributionConfigurationFileOption.class)));
             options.addAll(fromFeatureOptions(subsystem.getOptions(KarafFeaturesOption.class)));
             options.addAll(fromFeatureOptions(KarafDistributionOption.features(EXAM_REPO_URL,
@@ -257,7 +253,7 @@ public class KarafTestContainer implements TestContainer {
         for (EnvironmentOption environmentOption : environmentOptions) {
             environment.add(environmentOption.getEnvironment());
         }
-        ArrayList<String> javaOpts = new ArrayList<String>();
+        ArrayList<String> javaOpts = new ArrayList<>();
         appendVmSettingsFromSystem(javaOpts, subsystem);
         String[] javaEndorsedDirs = null;
         if (System.getProperty("java.version").startsWith("9")) {
@@ -393,7 +389,7 @@ public class KarafTestContainer implements TestContainer {
 
     private void updateUserSetProperties(File karafHome,
         List<KarafDistributionConfigurationFileOption> options) throws IOException {
-        HashMap<String, HashMap<String, List<KarafDistributionConfigurationFileOption>>> optionMap = new HashMap<String, HashMap<String, List<KarafDistributionConfigurationFileOption>>>();
+        HashMap<String, HashMap<String, List<KarafDistributionConfigurationFileOption>>> optionMap = new HashMap<>();
         for (KarafDistributionConfigurationFileOption option : options) {
             if (!optionMap.containsKey(option.getConfigurationFilePath())) {
                 optionMap.put(option.getConfigurationFilePath(),
@@ -488,7 +484,7 @@ public class KarafTestContainer implements TestContainer {
 
     private Collection<? extends KarafDistributionConfigurationFileOption> fromFeatureOptions(
         KarafFeaturesOption... featuresOptions) {
-        ArrayList<KarafDistributionConfigurationFileOption> retVal = new ArrayList<KarafDistributionConfigurationFileOption>();
+        ArrayList<KarafDistributionConfigurationFileOption> retVal = new ArrayList<>();
 
         for (KarafFeaturesOption featuresOption : featuresOptions) {
             retVal.add(new KarafDistributionConfigurationFileExtendOption(FeaturesCfg.REPOSITORIES,
@@ -524,12 +520,39 @@ public class KarafTestContainer implements TestContainer {
             LOGGER.info("Log file should not be modified by the test framework");
             return;
         }
+
+        LoggingBackend loggingBackend = getLoggingBackend(karafHome);
         String realLogLevel = retrieveRealLogLevel(_system);
+
         File customPropertiesFile = new File(karafHome, framework.getKarafEtc() + "/org.ops4j.pax.logging.cfg");
         Properties karafPropertyFile = new Properties();
         karafPropertyFile.load(new FileInputStream(customPropertiesFile));
-        karafPropertyFile.put("log4j.rootLogger", realLogLevel + ", out, stdout, osgi:*");
+        loggingBackend.updatePaxLoggingConfiguration(karafPropertyFile, realLogLevel);
         karafPropertyFile.store(new FileOutputStream(customPropertiesFile), "updated by pax-exam");
+    }
+
+    private LoggingBackend getLoggingBackend(File karafHome) throws IOException, FileNotFoundException {
+        File customisedSystemPropertiesFile = new File(karafHome, framework.getKarafEtc() + "/startup.properties");
+        InputStream customisedSystemPropertiesInputStream = null;
+        try {
+            customisedSystemPropertiesInputStream = new FileInputStream(customisedSystemPropertiesFile);
+            Properties customisedSystemProperties = new Properties();
+            customisedSystemProperties.load(customisedSystemPropertiesInputStream);
+
+            Set<Object> systemPropertyNames = customisedSystemProperties.keySet();
+            for (Object systemPropertyName : systemPropertyNames) {
+                if (systemPropertyName.toString().contains("pax-logging-log4j2")) {
+                    return LoggingBackend.LOG4J2;
+                }
+            }
+
+            return LoggingBackend.LOG4J;
+
+        } finally {
+            if (customisedSystemPropertiesInputStream != null) {
+                customisedSystemPropertiesInputStream.close();
+            }
+        }
     }
 
     private String retrieveRealLogLevel(ExamSystem _system) {
@@ -539,7 +562,7 @@ public class KarafTestContainer implements TestContainer {
     }
 
     private String[] buildKarafClasspath(File karafHome) {
-        List<String> cp = new ArrayList<String>();
+        List<String> cp = new ArrayList<>();
         File[] jars = new File(karafHome + "/lib").listFiles((FileFilter) new WildcardFileFilter(
             "*.jar"));
         for (File jar : jars) {
@@ -568,7 +591,7 @@ public class KarafTestContainer implements TestContainer {
      * Since we might get quite deep use a simple breath first search algorithm
      */
     private File searchKarafBase(File _targetFolder) {
-        Queue<File> searchNext = new LinkedList<File>();
+        Queue<File> searchNext = new LinkedList<>();
         searchNext.add(_targetFolder);
         while (!searchNext.isEmpty()) {
             File head = searchNext.poll();
@@ -653,7 +676,7 @@ public class KarafTestContainer implements TestContainer {
     private void waitForState(final long bundleId, final int state, final RelativeTimeout timeout) {
         target.getClientRBC().waitForState(bundleId, state, timeout);
     }
-    
+
 
     @Override
     public synchronized void call(TestAddress address) {
