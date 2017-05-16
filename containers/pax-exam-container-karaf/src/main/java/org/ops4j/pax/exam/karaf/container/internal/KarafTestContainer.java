@@ -16,12 +16,9 @@
  */
 package org.ops4j.pax.exam.karaf.container.internal;
 
-import static org.ops4j.pax.exam.CoreOptions.composite;
 import static org.ops4j.pax.exam.CoreOptions.maven;
-import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.CoreOptions.options;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
-import static org.ops4j.pax.exam.CoreOptions.when;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFileExtend;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_HOST_PROPERTY;
 import static org.ops4j.pax.exam.rbc.Constants.RMI_NAME_PROPERTY;
@@ -48,7 +45,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Queue;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.UUID;
 
@@ -83,7 +79,6 @@ import org.ops4j.pax.exam.karaf.options.configs.CustomProperties;
 import org.ops4j.pax.exam.karaf.options.configs.FeaturesCfg;
 import org.ops4j.pax.exam.karaf.options.libraries.OverrideJUnitBundlesOption;
 import org.ops4j.pax.exam.options.BootDelegationOption;
-import org.ops4j.pax.exam.options.MavenArtifactProvisionOption;
 import org.ops4j.pax.exam.options.MavenArtifactUrlReference;
 import org.ops4j.pax.exam.options.PropagateSystemPropertyOption;
 import org.ops4j.pax.exam.options.ServerModeOption;
@@ -151,7 +146,6 @@ public class KarafTestContainer implements TestContainer {
                     systemProperty(RMI_NAME_PROPERTY).value(name),
                     invokerConfiguration,
                     systemProperty(EXAM_INJECT_PROPERTY).value("true"),
-                    when(shouldInjectJUnitBundles(system)).useOptions(injectJUnitBundles()),
                     editConfigurationFileExtend("etc/system.properties", "jline.shutdownhook",
                         "true")));
             target = new RBCRemoteTarget(name, port, subsystem.getTimeout());
@@ -174,8 +168,10 @@ public class KarafTestContainer implements TestContainer {
             List<KarafDistributionConfigurationFileOption> options = new ArrayList<>(
                 Arrays.asList(subsystem.getOptions(KarafDistributionConfigurationFileOption.class)));
             options.addAll(fromFeatureOptions(subsystem.getOptions(KarafFeaturesOption.class)));
-            options.addAll(fromFeatureOptions(KarafDistributionOption.features(EXAM_REPO_URL,
-                "exam")));
+            String usedExamFeature = shouldInjectJUnitBundles(system)
+                    ? "exam"
+                    : "exam-no-junit";
+            options.addAll(fromFeatureOptions(KarafDistributionOption.features(EXAM_REPO_URL, usedExamFeature)));
 
             if (framework.isUseDeployFolder()) {
                 deployer.copyReferencedArtifactsToDeployFolder();
@@ -201,33 +197,6 @@ public class KarafTestContainer implements TestContainer {
         Option[] options = _system.getOptions(OverrideJUnitBundlesOption.class);  
         LOGGER.info("Found {} options when requesting OverrideJUnitBundlesOption.class. Response: {}", options.length, options.length == 0);
         return options.length == 0;
-    }
-    
-    private Option injectJUnitBundles() throws IOException {
-        LOGGER.info("Injecting JUnit Bundles");
-        //return CoreOptions.junitBundles(); //The link: based URI's do not work for whatever reason
-        return composite(
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.junit.link"),
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.tipi.hamcrest.core.link"),
-            //createBundleFromLink("/META-INF/links/org.ops4j.pax.exam.invoker.junit.link")
-            mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.junit").version("4.12.0.1"),
-            mavenBundle().groupId("org.ops4j.pax.tipi").artifactId("org.ops4j.pax.tipi.hamcrest.core").version("1.3.0.1"),
-            mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-invoker-junit").version(Info.getPaxExamVersion())            
-        );
-    }
-    
-    private MavenArtifactProvisionOption createBundleFromLink(String link) throws IOException {
-        Scanner input = new Scanner(KarafTestContainer.class.getResource(link).openStream());//URL(link).openStream());
-        try {
-            String mvnRef = input.nextLine();
-            
-            String[] sections = mvnRef.split("/");
-            MavenArtifactProvisionOption m = mavenBundle().groupId(sections[0].replaceFirst("mvn:","")).artifactId(sections[1]).version(sections[2]);
-            LOGGER.info("Parsed link and received: {} parsed: {}", mvnRef, m);
-            return m;
-        } finally {
-            input.close();
-        }
     }
     
     private KarafManipulator createVersionAdapter(File karafBase) {
