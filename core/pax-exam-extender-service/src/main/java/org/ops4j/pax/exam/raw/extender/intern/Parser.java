@@ -76,7 +76,7 @@ public class Parser {
         else {
             Map<String, String> props = new HashMap<String, String>();
             props.put("driver", invokerType);
-            ProbeInvokerFactory factory = ServiceLookup.getService(ctx, ProbeInvokerFactory.class,
+            ProbeInvokerFactory factory = ServiceLookup.getService(ctx, ProbeInvokerFactory.class, 60000,
                 props);
             return factory.createProbeInvoker(ctx, expr);
         }
