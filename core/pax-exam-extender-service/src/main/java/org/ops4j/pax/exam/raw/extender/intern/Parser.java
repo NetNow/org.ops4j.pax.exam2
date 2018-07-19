@@ -76,10 +76,19 @@ public class Parser {
         else {
             Map<String, String> props = new HashMap<String, String>();
             props.put("driver", invokerType);
-            ProbeInvokerFactory factory = ServiceLookup.getService(ctx, ProbeInvokerFactory.class, 60000,
+            ProbeInvokerFactory factory = ServiceLookup.getService(ctx, ProbeInvokerFactory.class, getProbeTimeout(),
                 props);
             return factory.createProbeInvoker(ctx, expr);
         }
+    }
+
+    private int getProbeTimeout() {
+        String timeoutString = System.getProperty("pax.exam.invoker.timeout");
+        try {
+            return Integer.valueOf(timeoutString)
+        } catch (NumberFormatException e) {
+        }
+        return 60000
     }
 
     public Probe[] getProbes() {
